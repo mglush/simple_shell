@@ -75,13 +75,17 @@ void fchild(char **args,int inPipe, int outPipe)
   pid_t pid;
   
   pid = fork();
-  if (pid == 0)/*Child  process*/
+  if (pid > 0) // parent process.
+    waitpid(pid, NULL, 0);
+  else if (pid == 0)/*Child  process*/
   {
     int execReturn=-1;
 
     /*Call dup2 to setup redirection, and then call excevep*/
 
     /*Your solution*/
+    // printf("fchild args[0] is %s\n", args[0]);
+    execvp(args[0], args);
 
     if (execReturn < 0) 
     { 
@@ -91,14 +95,13 @@ void fchild(char **args,int inPipe, int outPipe)
       
     _exit(0);
 
-  }
-
-  if (pid < 0)
+  } 
+  else // pid < 0
   {
     printf("ERROR: Failed to fork child process.\n");
     exit(1); 
   }
-  
+
   if(inPipe != 0)
     close(inPipe); /*clean up, release file control resource*/
     
@@ -127,6 +130,10 @@ void runcmd(char * linePtr, int length, int inPipe, int outPipe)
   {
     /*Exit if seeing "exit" command*/
     /*Your solution*/
+
+    /*MG: Below solution works when exit command is typed!*/
+    if (strcmp(args[0], "exit") == 0)
+      exit(0);
             
     if (*nextChar == '<' && inPipe == 0) 
     {
@@ -145,6 +152,13 @@ void runcmd(char * linePtr, int length, int inPipe, int outPipe)
     if (*nextChar == '>')
     {   /*It is output redirection, setup the file name to write*/
         /*Your solutuon*/
+        
+        //nextChar+1 moves the character position after >,
+        //thus points to a file name
+        char * out[length];
+        nextChar = parse(nextChar+1,out); 
+
+        /* Change outPipe so it follows the redirection */ 
           
     }
 
@@ -159,7 +173,7 @@ void runcmd(char * linePtr, int length, int inPipe, int outPipe)
     }
 
     if (*nextChar == '\0') 
-    { /*There is noting special after this subcommand, so we just execute in a regular way*/
+    { /*There is nothing special after this subcommand, so we just execute in a regular way*/
       fchild(args,inPipe,outPipe);
       return;
     }
@@ -190,6 +204,7 @@ int main(int argc, char *argv[])
       lineIn[len-1] = '\0';
       len--;
     }
+    // printf("LINE IN: %s\n", lineIn);
         
     //Run this string of subcommands with 0 as default input stream
     //and 1 as default output stream
