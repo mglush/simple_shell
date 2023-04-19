@@ -70,7 +70,7 @@ char* parse(char * lineptr, char **args)
  * inPipe -- the input stream file descriptor.  For example,  wc < temp 
  * outPipe --the output stream file descriptor.  For example, ls > temp 
  */
-void fchild(char **args,int inPipe, int outPipe)
+void fchild(char **args, int inPipe, int outPipe)
 {
   pid_t pid;
   
@@ -86,16 +86,9 @@ void fchild(char **args,int inPipe, int outPipe)
     /*Your solution*/
     // printf("fchild args[0] is %s\n", args[0]);
     execvp(args[0], args);
-    perror(argv[0]);
-
-    if (execReturn < 0) 
-    { 
-      printf("ERROR: exec failed\n");
-      exit(1);
-    }
-      
+    perror(args[0]);
+  
     _exit(0);
-
   } 
   else // pid < 0
   {
