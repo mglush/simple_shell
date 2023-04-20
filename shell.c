@@ -77,11 +77,13 @@ void fchild(char **args, int inPipe, int outPipe)
   pid = fork();
   if (pid > 0) // parent process.
     waitpid(pid, NULL, 0); // wait for children to finish up.
+    // this area can be expanded to collect child error codes.
   else if (pid == 0)/*Child  process*/
   {
     int execReturn=-1;
 
     /*Call dup2 to setup redirection, and then call excevep*/
+    // check if we actually need to redirect input.
     if (inPipe != 0) {
       // close stdin.
       close(0);
@@ -89,6 +91,7 @@ void fchild(char **args, int inPipe, int outPipe)
       dup2(inPipe, 0);
     }
 
+    // check if we actually need to redirect output.
     if (outPipe != 1) {
       // close stdout.
       close(1);
@@ -96,24 +99,26 @@ void fchild(char **args, int inPipe, int outPipe)
       dup2(outPipe, 1);
     }
 
-    // run da command now that the in and out pipes are set up.
+    // now that the in and out pipes are set up, run da command.
     execReturn = execvp(args[0], args);
 
     // if exec fails, print error.
     perror(args[0]);
 
-    // exit at the end.
-    _exit(0);
+    // exit at the end, with error code.
+    _exit(1); // using _exit because this is a child.
   } 
   else // pid < 0
   {
-    printf("ERROR: Failed to fork child process.\n");
+    perror("fork");
     exit(1);
   }
 
+  // if we redirected input above, we need to now close this thang.
   if(inPipe != 0)
     close(inPipe); /*clean up, release file control resource*/
     
+  // if we redirected output above, we need to now close this thang.
   if(outPipe != 1)
     close(outPipe); /*clean up, release file control  resource*/
 }
@@ -151,7 +156,8 @@ void runcmd(char * linePtr, int length, int inPipe, int outPipe)
       nextChar = parse(nextChar+1,in);
 
       /* Change inPipe so it follows the redirection */ 
-      // 1) create file we will write to.
+      // basically, we want to open the file we will read from (down below when fchild() gets called.)
+      // the child takes care of closing stdin, using dup2, and closing inPipe at the end.
       if ((inPipe = open(in[0], O_RDONLY)) == -1)
         perror("open");
     }
@@ -165,7 +171,8 @@ void runcmd(char * linePtr, int length, int inPipe, int outPipe)
         nextChar = parse(nextChar+1,out);
 
         /* Change outPipe so it follows the redirection */ 
-        // 1) create file we will write to.
+        // basically, we want to create a file we will later write to (down below when fchild() gets called.)
+        // the child takes care of closing stdout, using dup2, and closing outPipe at the end.
         if ((outPipe = creat(out[0], 0644)) == -1)
           perror("creat");
     }
@@ -174,15 +181,39 @@ void runcmd(char * linePtr, int length, int inPipe, int outPipe)
     { /*It is a pipe, setup the input and output descriptors */
       /*execute the subcommand that has been parsed, but setup the output using this pipe*/
 
-      // basically we gotta create pipe, execute command on the left,
-      // close dat outpipe after moving it to inpipe of the command on the right.
+      // gotta build the pipe between the command on the left and command on the right.
+      // we can executed the left command, create a pipe, use output of the command as input
+      // into the pipe, carry on with our day.
 
+      // create the pipe.
+      int fd[2];
+      pipe(fd);
+
+      // execute fchild command, putting its output into the write end of the pipe.
+      fchild(args, inPipe, fd[1]);
+
+      // calculate remaining length we have to process.
+      while (*linePtr != *nextChar) {
+        length--;
+        linePtr++;
+      }
+
+      // skip past the pipe sign and the whitespace following it.
+      while (*(++linePtr) == '\0') {}
+      
+      // connect the pipe's read end to our inPipe and recursively process the rest of the line!
+      runcmd(linePtr, length, fd[0], outPipe);
+
+      // close the other end of the pipe now that we are done using it.
+      close(fd[0]);
+
+      // return, we are done processing this line of shellcode. 
       return;
     }
 
     if (*nextChar == '\0') 
     { /*There is nothing special after this subcommand, so we just execute in a regular way*/
-      fchild(args,inPipe,outPipe);
+      fchild(args, inPipe, outPipe);
       return;
     }
 
