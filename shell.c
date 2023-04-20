@@ -76,24 +76,39 @@ void fchild(char **args, int inPipe, int outPipe)
   
   pid = fork();
   if (pid > 0) // parent process.
-    waitpid(pid, NULL, 0);
+    waitpid(pid, NULL, 0); // wait for children to finish up.
   else if (pid == 0)/*Child  process*/
   {
     int execReturn=-1;
 
     /*Call dup2 to setup redirection, and then call excevep*/
+    if (inPipe != 0) {
+      // close stdin.
+      close(0);
+      // use dup2 to set up inPipe.
+      dup2(inPipe, 0);
+    }
 
-    /*Your solution*/
-    // printf("fchild args[0] is %s\n", args[0]);
-    execvp(args[0], args);
+    if (outPipe != 1) {
+      // close stdout.
+      close(1);
+      // use dup2 to set up outPipe.
+      dup2(outPipe, 1);
+    }
+
+    // run da command now that the in and out pipes are set up.
+    execReturn = execvp(args[0], args);
+
+    // if exec fails, print error.
     perror(args[0]);
-  
+
+    // exit at the end.
     _exit(0);
   } 
   else // pid < 0
   {
     printf("ERROR: Failed to fork child process.\n");
-    exit(1); 
+    exit(1);
   }
 
   if(inPipe != 0)
@@ -122,46 +137,45 @@ void runcmd(char * linePtr, int length, int inPipe, int outPipe)
 
   if (args[0] != NULL)
   {
-    /*Exit if seeing "exit" command*/
-    /*Your solution*/
-
-    /*MG: Below solution works when exit command is typed!*/
+    // exit shell when exit command is typed!
     if (strcmp(args[0], "exit") == 0)
       exit(0);
             
     if (*nextChar == '<' && inPipe == 0) 
     {
-      //It is input redirection, setup the file name to read from
-      char * in[length];
+      /*INPUT REDIRECTION, setup the file name to read from*/
       
       //nextChar+1 moves the character position after <,
       //thus points to a file name
-      nextChar = parse(nextChar+1,in); 
+      char* in[length];
+      nextChar = parse(nextChar+1,in);
 
       /* Change inPipe so it follows the redirection */ 
-      /*Your solutuon*/
-
+      // 1) create file we will write to.
+      if ((inPipe = open(in[0], O_RDONLY)) == -1)
+        perror("open");
     }
 
     if (*nextChar == '>')
-    {   /*It is output redirection, setup the file name to write*/
-        /*Your solutuon*/
-        
+    {   /*OUTPUT REDIRECTION, setup the file name to write*/
+
         //nextChar+1 moves the character position after >,
         //thus points to a file name
-        char * out[length];
-        nextChar = parse(nextChar+1,out); 
+        char* out[length];
+        nextChar = parse(nextChar+1,out);
 
         /* Change outPipe so it follows the redirection */ 
-          
+        // 1) create file we will write to.
+        if ((outPipe = creat(out[0], 0644)) == -1)
+          perror("creat");
     }
 
     if (*nextChar == '|')
     { /*It is a pipe, setup the input and output descriptors */
       /*execute the subcommand that has been parsed, but setup the output using this pipe*/
-      /*Your solution*/
-      /*execute the remaining subcommands, but setup the input using this pipe*/
-      /*Your solution*/
+
+      // basically we gotta create pipe, execute command on the left,
+      // close dat outpipe after moving it to inpipe of the command on the right.
 
       return;
     }
@@ -198,15 +212,15 @@ int main(int argc, char *argv[])
       lineIn[len-1] = '\0';
       len--;
     }
-    // printf("LINE IN: %s\n", lineIn);
         
     //Run this string of subcommands with 0 as default input stream
     //and 1 as default output stream
     runcmd(lineIn, len,0,1);
   
     /*Wait for the child completes */
-    /*Your solution*/
-
+    pid_t pid = getpid();
+    if (pid > 0) // parent process.
+      waitpid(pid, NULL, 0);
   }
 
   return 0;
