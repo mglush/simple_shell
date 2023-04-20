@@ -1,4 +1,0 @@
-cat < testfile9 | sort | wc > temp 
-rm temp
-exit
-

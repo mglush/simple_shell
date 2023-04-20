@@ -1,5 +1,0 @@
-sort < Makefile > temp
-echo Output of sort
-cat temp
-rm temp
-

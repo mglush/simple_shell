@@ -1,5 +1,0 @@
-echo "Command ls -l"
-ls -l -f
-echo "Command ls"
-ls -al 
-exit
