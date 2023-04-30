@@ -1,5 +1,5 @@
-# Simple Shell Implementation
-#### By Michael Glushchenko
+# Simple Shell Implementation in C
+#### By Michael Glushchenko for UCSB CS170 Spring 2023.
 
 This is the first project I did for UCSB CS170 S23. It implements the following:  
 - a shell that can take in any of the Linux shell commands.  
